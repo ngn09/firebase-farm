@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from 'next/link';
@@ -27,11 +26,13 @@ import {
   LogOut,
   Map,
   ClipboardCheck,
-  PawPrint
+  PawPrint,
+  Bot
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { APP_CONFIG } from '@/lib/constants';
+import { storage } from '@/lib/storage';
 
 const menuItems = [
   { href: '/dashboard', label: 'Gösterge Paneli', icon: LayoutDashboard },
@@ -41,6 +42,7 @@ const menuItems = [
   { href: '/health', label: 'Sağlık', icon: HeartPulse },
   { href: '/tasks', label: 'Görevler', icon: ClipboardCheck },
   { href: '/farm-map', label: 'Çiftlik Haritası', icon: Map },
+  { href: '/crop-advisor', label: 'Mahsul Danışmanı', icon: Bot },
   { href: '/cameras', label: 'Kameralar', icon: Camera },
   { href: '/chat', label: 'Sohbet', icon: MessageCircle },
   { href: '/users', label: 'Kullanıcılar', icon: Users },
@@ -50,74 +52,80 @@ const menuItems = [
 export function MainSidebar() {
   const pathname = usePathname();
   const { isCollapsed } = useSidebar();
-  const [farmName, setFarmName] = useState('mir');
+  const [farmName, setFarmName] = useState(APP_CONFIG.NAME);
   const [logo, setLogo] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
-    try {
-      const savedName = localStorage.getItem('farmName');
-      const savedLogo = localStorage.getItem('farmLogo');
-      if (savedName) setFarmName(savedName);
-      if (savedLogo) setLogo(savedLogo);
-    } catch (error) {
-        console.error("Could not access local storage:", error);
-    }
+    const savedName = storage.get<string>(APP_CONFIG.STORAGE_KEYS.FARM_NAME);
+    const savedLogo = storage.get<string>(APP_CONFIG.STORAGE_KEYS.FARM_LOGO);
+    
+    if (savedName) setFarmName(savedName);
+    if (savedLogo) setLogo(savedLogo);
   }, []);
 
   return (
     <Sidebar>
       <SidebarHeader>
-          <Link href="/dashboard" className="flex items-center gap-2">
-            {isMounted && logo ? (
-                <Image src={logo} alt="Farm Logo" width={32} height={32} className="w-8 h-8 rounded-sm object-contain" />
-              ) : (
-                <div className="w-8 h-8 flex items-center justify-center">
-                   <Leaf className="w-8 h-8 text-primary" />
-                </div>
-            )}
-            {!isCollapsed && (
-              <h1 className="text-xl font-bold font-headline">
-                  {isMounted ? farmName : 'mir'}
-              </h1>
-            )}
-          </Link>
-          <div className="hidden md:block">
-            <SidebarTrigger/>
-          </div>
+        <Link href="/dashboard" className="flex items-center gap-2" aria-label="Ana sayfa">
+          {isMounted && logo ? (
+            <Image 
+              src={logo} 
+              alt="Çiftlik Logosu" 
+              width={32} 
+              height={32} 
+              className="w-8 h-8 rounded-sm object-contain"
+              priority
+            />
+          ) : (
+            <div className="w-8 h-8 flex items-center justify-center">
+              <Leaf className="w-8 h-8 text-primary" />
+            </div>
+          )}
+          {!isCollapsed && (
+            <h1 className="text-xl font-bold font-headline truncate">
+              {isMounted ? farmName : APP_CONFIG.NAME}
+            </h1>
+          )}
+        </Link>
+        <div className="hidden md:block">
+          <SidebarTrigger />
+        </div>
       </SidebarHeader>
+      
       <SidebarContent>
         <SidebarMenu>
           {menuItems.map((item) => (
             <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname.startsWith(item.href)}
-                >
-                  <Link href={item.href}>
-                    <item.icon />
-                    {!isCollapsed && <span>{item.label}</span>}
-                  </Link>
-                </SidebarMenuButton>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname.startsWith(item.href)}
+              >
+                <Link href={item.href} aria-label={item.label}>
+                  <item.icon className="flex-shrink-0" />
+                  {!isCollapsed && <span className="truncate">{item.label}</span>}
+                </Link>
+              </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
       </SidebarContent>
+      
       <SidebarFooter>
-         <SidebarMenu>
-            <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname === '/'}
-                >
-                  <Link href="/">
-                    <LogOut />
-                    {!isCollapsed && <span>Çıkış Yap</span>}
-                  </Link>
-                </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              isActive={pathname === '/'}
+            >
+              <Link href="/" aria-label="Çıkış yap">
+                <LogOut className="flex-shrink-0" />
+                {!isCollapsed && <span>Çıkış Yap</span>}
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
   );

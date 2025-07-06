@@ -1,4 +1,10 @@
+import { Metadata } from 'next';
 import { AdvisorForm } from "@/components/crop-advisor/advisor-form";
+
+export const metadata: Metadata = {
+  title: 'Mahsul Danışmanı',
+  description: 'Yapay zeka destekli mahsul önerileri alın.',
+};
 
 export default function CropAdvisorPage() {
   return (
