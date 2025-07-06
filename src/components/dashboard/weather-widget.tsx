@@ -2,12 +2,9 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { Sun, Cloud, CloudRain, Thermometer, AlertTriangle } from "lucide-react";
-import React, { useState, useEffect, useCallback } from "react";
+import { Sun, Cloud, CloudRain, AlertTriangle } from "lucide-react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { LOCATIONS, APP_CONFIG } from "@/lib/constants";
-import { storage } from "@/lib/storage";
-import { retry } from "@/lib/utils";
 
 interface WeatherData {
   temp: number;
@@ -25,51 +22,34 @@ const getWeatherInfoFromCode = (code: number) => {
 export function WeatherWidget() {
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [selectedLocationId, setSelectedLocationId] = useState<string>('istanbul');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const savedLocation = storage.get<string>(APP_CONFIG.STORAGE_KEYS.SELECTED_LOCATION);
-    if (savedLocation && LOCATIONS.some(l => l.id === savedLocation)) {
-      setSelectedLocationId(savedLocation);
-    }
-  }, []);
+  const selectedLocation = useMemo(() => 
+    LOCATIONS.find(l => l.id === selectedLocationId), 
+    [selectedLocationId]
+  );
 
   const fetchWeatherData = useCallback(async () => {
+    if (!selectedLocation) return;
+    
     setIsLoading(true);
     setError(null);
-
-    const location = LOCATIONS.find(l => l.id === selectedLocationId);
-    if (!location) {
-      setError("Konum bulunamadı.");
-      setIsLoading(false);
-      return;
-    }
 
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), APP_CONFIG.WEATHER_API.TIMEOUT);
 
-      const data = await retry(async () => {
-        const response = await fetch(
-          `${APP_CONFIG.WEATHER_API.BASE_URL}?latitude=${location.lat}&longitude=${location.lon}&current=temperature_2m,weather_code`,
-          { 
-            signal: controller.signal,
-            headers: {
-              'Accept': 'application/json',
-            }
-          }
-        );
-        
-        clearTimeout(timeoutId);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        
-        return response.json();
-      }, 3, 1000);
-
+      const response = await fetch(
+        `${APP_CONFIG.WEATHER_API.BASE_URL}?latitude=${selectedLocation.lat}&longitude=${selectedLocation.lon}&current=temperature_2m,weather_code`,
+        { signal: controller.signal }
+      );
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) throw new Error('Hava durumu alınamadı');
+      
+      const data = await response.json();
       const { icon, condition } = getWeatherInfoFromCode(data.current.weather_code);
       
       setWeatherData({
@@ -78,28 +58,29 @@ export function WeatherWidget() {
         icon,
       });
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Veri alınırken hata oluştu.";
-      setError(errorMessage);
-      console.error('Weather fetch error:', err);
+      setError("Veri alınamadı");
     } finally {
       setIsLoading(false);
     }
-  }, [selectedLocationId]);
+  }, [selectedLocation]);
 
   useEffect(() => {
     fetchWeatherData();
   }, [fetchWeatherData]);
 
-  const handleLocationChange = (newLocationId: string) => {
+  const handleLocationChange = useCallback((newLocationId: string) => {
     setSelectedLocationId(newLocationId);
-    storage.set(APP_CONFIG.STORAGE_KEYS.SELECTED_LOCATION, newLocationId);
-  };
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(APP_CONFIG.STORAGE_KEYS.SELECTED_LOCATION, newLocationId);
+    }
+  }, []);
 
   const renderContent = () => {
     if (isLoading) {
       return (
-        <div className="flex items-center justify-center py-4">
-          <LoadingSpinner size="md" />
+        <div className="flex items-center space-x-2">
+          <div className="h-8 w-8 animate-pulse bg-muted rounded" />
+          <div className="h-8 w-16 animate-pulse bg-muted rounded" />
         </div>
       );
     }
@@ -107,7 +88,7 @@ export function WeatherWidget() {
     if (error) {
       return (
         <div className="flex items-center text-destructive py-2">
-          <AlertTriangle className="h-5 w-5 mr-2 flex-shrink-0" />
+          <AlertTriangle className="h-5 w-5 mr-2" />
           <p className="text-sm">{error}</p>
         </div>
       );
@@ -118,7 +99,7 @@ export function WeatherWidget() {
       return (
         <>
           <div className="flex items-center space-x-2">
-            <WeatherIcon className="h-8 w-8 text-yellow-500 flex-shrink-0" />
+            <WeatherIcon className="h-8 w-8 text-yellow-500" />
             <div className="text-3xl font-bold">{weatherData.temp}°C</div>
           </div>
           <p className="text-sm text-muted-foreground pt-1">{weatherData.condition}</p>
@@ -134,8 +115,8 @@ export function WeatherWidget() {
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">Hava Durumu</CardTitle>
         <Select value={selectedLocationId} onValueChange={handleLocationChange}>
-          <SelectTrigger className="w-auto h-auto p-0 focus:ring-0 focus:ring-offset-0 border-none shadow-none bg-transparent text-xs text-muted-foreground">
-            <SelectValue placeholder="Konum" />
+          <SelectTrigger className="w-auto h-auto p-0 focus:ring-0 border-none shadow-none bg-transparent text-xs text-muted-foreground">
+            <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {LOCATIONS.map(loc => (

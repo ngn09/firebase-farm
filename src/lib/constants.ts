@@ -1,4 +1,4 @@
-// Application constants
+// Application constants - Optimized
 export const APP_CONFIG = {
   NAME: 'Çiftlik Asistanı',
   VERSION: '1.0.0',
@@ -29,7 +29,7 @@ export const APP_CONFIG = {
   },
   WEATHER_API: {
     BASE_URL: 'https://api.open-meteo.com/v1/forecast',
-    TIMEOUT: 10000,
+    TIMEOUT: 5000, // Reduced timeout
   },
 } as const;
 
@@ -38,30 +38,11 @@ export const LOCATIONS = [
   { name: 'Ankara', id: 'ankara', lat: 39.93, lon: 32.86 },
   { name: 'İzmir', id: 'izmir', lat: 38.42, lon: 27.14 },
   { name: 'Konya', id: 'konya', lat: 37.87, lon: 32.49 },
-  { name: 'Bursa', id: 'bursa', lat: 40.18, lon: 29.06 },
-  { name: 'Antalya', id: 'antalya', lat: 36.88, lon: 30.70 },
 ] as const;
 
 export const MOCK_USERS = [
   "Ali Veli", 
   "Ayşe Fatma", 
   "Ahmet Yılmaz", 
-  "Mehmet Demir",
-  "Fatma Kaya",
   "Atanmamış"
-] as const;
-
-export const ROLES_WITH_DESCRIPTIONS = {
-  'Yönetici': 'Tüm yönetim ve ayar yetkilerine sahiptir.',
-  'Veteriner': 'Hayvan sağlığı kayıtlarına erişebilir ve düzenleyebilir.',
-  'Bakıcı': 'Hayvanların günlük bakım ve görevlerini yönetir.',
-  'İşçi': 'Atanan görevleri ve temel çiftlik bilgilerini görüntüler.',
-} as const;
-
-export const ANIMAL_GROUPS = [
-  { id: 'sut-inekleri', name: 'Süt İnekleri', count: 15 },
-  { id: 'besi-danalari', name: 'Besi Danaları', count: 25 },
-  { id: 'kuzular', name: 'Kuzular', count: 50 },
-  { id: 'keciler', name: 'Keçiler', count: 30 },
-  { id: 'tavuklar', name: 'Tavuklar', count: 100 },
 ] as const;

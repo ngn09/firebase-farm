@@ -30,9 +30,8 @@ import {
   Bot
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { APP_CONFIG } from '@/lib/constants';
-import { storage } from '@/lib/storage';
 
 const menuItems = [
   { href: '/dashboard', label: 'Gösterge Paneli', icon: LayoutDashboard },
@@ -58,12 +57,19 @@ export function MainSidebar() {
 
   useEffect(() => {
     setIsMounted(true);
-    const savedName = storage.get<string>(APP_CONFIG.STORAGE_KEYS.FARM_NAME);
-    const savedLogo = storage.get<string>(APP_CONFIG.STORAGE_KEYS.FARM_LOGO);
-    
-    if (savedName) setFarmName(savedName);
-    if (savedLogo) setLogo(savedLogo);
+    if (typeof window !== 'undefined') {
+      const savedName = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.FARM_NAME);
+      const savedLogo = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.FARM_LOGO);
+      
+      if (savedName) setFarmName(savedName);
+      if (savedLogo) setLogo(savedLogo);
+    }
   }, []);
+
+  const displayName = useMemo(() => 
+    isMounted ? farmName : APP_CONFIG.NAME, 
+    [isMounted, farmName]
+  );
 
   return (
     <Sidebar>
@@ -85,7 +91,7 @@ export function MainSidebar() {
           )}
           {!isCollapsed && (
             <h1 className="text-xl font-bold font-headline truncate">
-              {isMounted ? farmName : APP_CONFIG.NAME}
+              {displayName}
             </h1>
           )}
         </Link>
@@ -115,10 +121,7 @@ export function MainSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={pathname === '/'}
-            >
+            <SidebarMenuButton asChild>
               <Link href="/" aria-label="Çıkış yap">
                 <LogOut className="flex-shrink-0" />
                 {!isCollapsed && <span>Çıkış Yap</span>}

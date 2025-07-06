@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { WeatherWidget } from "@/components/dashboard/weather-widget";
+import { useState, useMemo, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,13 +13,38 @@ import { useSidebar } from '@/components/ui/sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { APP_CONFIG } from '@/lib/constants';
-import { convertToKg } from '@/lib/utils';
-import type { Animal, FeedItem, HealthRecord, Task } from '@/lib/validation';
+
+// Dynamic imports for better performance
+const WeatherWidget = dynamic(() => import("@/components/dashboard/weather-widget").then(mod => ({ default: mod.WeatherWidget })), {
+  loading: () => <div className="h-32 bg-muted animate-pulse rounded" />,
+  ssr: false
+});
 
 interface Message {
   sender: string;
   text: string;
-  timestamp: Date;
+  timestamp: number;
+}
+
+interface Animal {
+  id?: number;
+  status: string;
+}
+
+interface FeedItem {
+  id?: number;
+  quantity: string;
+  unit: string;
+}
+
+interface HealthRecord {
+  id: number;
+  status: string;
+}
+
+interface Task {
+  id?: number;
+  status: string;
 }
 
 export default function DashboardPage() {
@@ -33,43 +58,51 @@ export default function DashboardPage() {
   const [healthRecords] = useLocalStorage<HealthRecord[]>(APP_CONFIG.STORAGE_KEYS.HEALTH_RECORDS, []);
   const [tasks] = useLocalStorage<Task[]>(APP_CONFIG.STORAGE_KEYS.TASKS, []);
 
-  // Calculate stats
-  const totalAnimals = animals.length;
+  // Memoized calculations
+  const stats = useMemo(() => {
+    const totalAnimals = animals.length;
+    
+    const totalFeedInKg = feedItems.reduce((total, item) => {
+      const qty = parseFloat(item.quantity);
+      if (isNaN(qty)) return total;
+      
+      switch (item.unit) {
+        case 'ton': return total + (qty * 1000);
+        case 'çuval': return total + (qty * 50);
+        default: return total + qty;
+      }
+    }, 0);
+    
+    const totalFeedInTons = (totalFeedInKg / 1000).toFixed(1);
+    const healthAlerts = healthRecords.filter(record => record.status === 'Tedavi Altında').length;
+    const pendingTasks = tasks.filter(task => task.status === 'Bekliyor' || task.status === 'Devam Ediyor').length;
 
-  const totalFeedInKg = feedItems.reduce((total, item) => {
-    return total + convertToKg(item.quantity, item.unit);
-  }, 0);
-  const totalFeedInTons = (totalFeedInKg / 1000).toFixed(1);
+    return { totalAnimals, totalFeedInTons, healthAlerts, pendingTasks };
+  }, [animals, feedItems, healthRecords, tasks]);
 
-  const healthAlerts = healthRecords.filter(record => record.status === 'Tedavi Altında').length;
-
-  const pendingTasks = tasks.filter(
-    task => task.status === 'Bekliyor' || task.status === 'Devam Ediyor'
-  ).length;
-
-  const handleQuickChatSubmit = (e: React.FormEvent) => {
+  const handleQuickChatSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
-    if (quickMessage.trim() === '') return;
+    if (!quickMessage.trim()) return;
     
     const newMessage: Message = {
       sender: 'Siz',
       text: quickMessage.trim(),
-      timestamp: new Date()
+      timestamp: Date.now()
     };
     
     setQuickChatMessages(prev => [...prev, newMessage]);
+    setQuickMessage('');
     
+    // Simulate response
     setTimeout(() => {
       const assistantMessage: Message = {
         sender: 'Asistan',
-        text: "Mesajınız alındı. En kısa sürede yanıtlanacaktır.",
-        timestamp: new Date()
+        text: "Mesajınız alındı.",
+        timestamp: Date.now()
       };
       setQuickChatMessages(prev => [...prev, assistantMessage]);
     }, 1000);
-
-    setQuickMessage('');
-  };
+  }, [quickMessage]);
 
   return (
     <div className="container mx-auto p-4 md:p-6 lg:p-8">
@@ -81,61 +114,61 @@ export default function DashboardPage() {
         )}
         <div>
           <h1 className="text-3xl font-bold font-headline text-primary">Gösterge Paneli</h1>
-          <p className="text-muted-foreground">Çiftlik Asistanınıza hoş geldiniz. Burası genel bakış paneliniz.</p>
+          <p className="text-muted-foreground">Çiftlik Asistanınıza hoş geldiniz.</p>
         </div>
       </header>
       
       <div className="space-y-6">
         {/* Stat Cards Row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Link href="/animals" className="block hover:shadow-lg transition-shadow duration-300 rounded-lg">
+          <Link href="/animals" className="block hover:shadow-lg transition-shadow duration-200 rounded-lg">
             <Card className="h-full">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Toplam Hayvan Sayısı</CardTitle>
+                <CardTitle className="text-sm font-medium">Toplam Hayvan</CardTitle>
                 <Rabbit className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{totalAnimals}</div>
+                <div className="text-2xl font-bold">{stats.totalAnimals}</div>
                 <p className="text-xs text-muted-foreground">Aktif hayvan sayısı</p>
               </CardContent>
             </Card>
           </Link>
 
-          <Link href="/feed-stock" className="block hover:shadow-lg transition-shadow duration-300 rounded-lg">
+          <Link href="/feed-stock" className="block hover:shadow-lg transition-shadow duration-200 rounded-lg">
             <Card className="h-full">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Yem Stoğu (Ton)</CardTitle>
+                <CardTitle className="text-sm font-medium">Yem Stoğu</CardTitle>
                 <Database className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{totalFeedInTons} Ton</div>
+                <div className="text-2xl font-bold">{stats.totalFeedInTons} Ton</div>
                 <p className="text-xs text-muted-foreground">Toplam yem stoğu</p>
               </CardContent>
             </Card>
           </Link>
           
-          <Link href="/health" className="block hover:shadow-lg transition-shadow duration-300 rounded-lg">
+          <Link href="/health" className="block hover:shadow-lg transition-shadow duration-200 rounded-lg">
             <Card className="h-full">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Sağlık Uyarıları</CardTitle>
                 <Heart className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{healthAlerts}</div>
-                <p className="text-xs text-muted-foreground">Acil müdahale gerekiyor</p>
+                <div className="text-2xl font-bold">{stats.healthAlerts}</div>
+                <p className="text-xs text-muted-foreground">Acil müdahale</p>
               </CardContent>
             </Card>
           </Link>
 
-          <Link href="/tasks" className="block hover:shadow-lg transition-shadow duration-300 rounded-lg">
+          <Link href="/tasks" className="block hover:shadow-lg transition-shadow duration-200 rounded-lg">
             <Card className="h-full">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Bekleyen Görevler</CardTitle>
                 <ClipboardCheck className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{pendingTasks}</div>
-                <p className="text-xs text-muted-foreground">aktif görevler</p>
+                <div className="text-2xl font-bold">{stats.pendingTasks}</div>
+                <p className="text-xs text-muted-foreground">Aktif görevler</p>
               </CardContent>
             </Card>
           </Link>
@@ -147,7 +180,6 @@ export default function DashboardPage() {
             <WeatherWidget />
           </div>
           <div className="xl:col-span-2">
-            {/* Quick Chat Card */}
             <Card className="flex flex-col h-full">
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-lg">Hızlı Sohbet</CardTitle>
@@ -174,9 +206,6 @@ export default function DashboardPage() {
                             <div className={`p-3 rounded-lg text-sm max-w-xs ${msg.sender === 'Siz' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                               <p>{msg.text}</p>
                             </div>
-                            <span className="text-xs text-muted-foreground mt-1">
-                              {msg.timestamp.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
                           </div>
                           {msg.sender === 'Siz' && (
                             <Avatar className="h-8 w-8">
@@ -195,11 +224,10 @@ export default function DashboardPage() {
                     placeholder="Mesaj..."
                     value={quickMessage}
                     onChange={(e) => setQuickMessage(e.target.value)}
-                    maxLength={500}
+                    maxLength={200}
                   />
                   <Button type="submit" size="icon" disabled={!quickMessage.trim()}>
                     <Send className="h-4 w-4" />
-                    <span className="sr-only">Gönder</span>
                   </Button>
                 </form>
               </CardFooter>
