@@ -58,6 +58,9 @@ function Sidebar({ className, children }: { className?: string; children: React.
     return (
       <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
         <SheetContent side="left" className="w-64 p-0">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Navigation Menu</SheetTitle>
+          </SheetHeader>
           {children}
         </SheetContent>
       </Sheet>
