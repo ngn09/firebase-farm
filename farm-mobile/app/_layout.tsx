@@ -39,6 +39,7 @@ export default function RootLayout() {
                 headerShadowVisible: false,
                 animation: 'slide_from_right',
               },
+              }
             >
               <Stack.Screen 
                 name="(tabs)" 
