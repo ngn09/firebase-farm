@@ -1,69 +1,86 @@
 {
-  "name": "farm-mobile",
-  "version": "1.0.0",
-  "main": "expo-router/entry",
-  "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web",
-    "build": "expo build",
-    "build:android": "eas build --platform android",
-    "build:ios": "eas build --platform ios"
-  },
-  "dependencies": {
-    "@expo/vector-icons": "^14.0.0",
-    "@react-navigation/native": "^6.1.9",
-    "@react-navigation/stack": "^6.3.20",
-    "@react-navigation/bottom-tabs": "^6.5.11",
-    "@react-navigation/drawer": "^6.6.6",
-    "@react-native-async-storage/async-storage": "^1.21.0",
-    "@react-native-community/netinfo": "^11.1.0",
-    "@shopify/flash-list": "^1.6.3",
-    "@tanstack/react-query": "^5.17.0",
-    "expo": "~50.0.0",
-    "expo-router": "~3.4.0",
-    "expo-status-bar": "~1.11.1",
-    "expo-constants": "~15.4.0",
-    "expo-device": "~5.9.0",
-    "expo-notifications": "~0.27.0",
-    "expo-camera": "~14.1.0",
-    "expo-image-picker": "~14.7.0",
-    "expo-location": "~16.5.0",
-    "expo-sqlite": "~13.4.0",
-    "expo-file-system": "~16.0.0",
-    "expo-document-picker": "~11.10.0",
-    "expo-sharing": "~11.10.0",
-    "expo-print": "~12.8.0",
-    "expo-barcode-scanner": "~12.9.0",
-    "expo-image": "~1.10.0",
-    "expo-haptics": "~12.8.0",
-    "expo-secure-store": "~12.9.0",
-    "expo-updates": "~0.24.0",
-    "react": "18.2.0",
-    "react-native": "0.73.0",
-    "react-native-safe-area-context": "4.8.2",
-    "react-native-screens": "~3.29.0",
-    "react-native-gesture-handler": "~2.14.0",
-    "react-native-reanimated": "~3.6.2",
-    "react-native-svg": "14.1.0",
-    "react-native-paper": "^5.12.3",
-    "react-native-vector-icons": "^10.0.3",
-    "react-hook-form": "^7.48.2",
-    "zod": "^3.22.4",
-    "@hookform/resolvers": "^3.3.2",
-    "date-fns": "^3.0.6",
-    "zustand": "^4.4.7",
-    "react-native-chart-kit": "^6.12.0",
-    "react-native-modal": "^13.0.1",
-    "react-native-toast-message": "^2.2.0",
-    "react-native-mmkv": "^2.11.0",
-    "react-native-keychain": "^8.2.0"
-  },
-  "devDependencies": {
-    "@babel/core": "^7.23.6",
-    "@types/react": "~18.2.45",
-    "@types/react-native": "~0.73.0",
-    "typescript": "^5.3.3"
+  "expo": {
+    "name": "Çiftlik Asistanı",
+    "slug": "farm-assistant",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "scheme": "farm-assistant",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#8FBC8F"
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/[your-project-id]"
+    },
+    "runtimeVersion": "1.0.0",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.farmassistant.app",
+      "buildNumber": "1.0.0",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Hayvan fotoğrafları çekmek için kamera erişimi gerekli.",
+        "NSPhotoLibraryUsageDescription": "Hayvan fotoğrafları seçmek için galeri erişimi gerekli.",
+        "NSLocationWhenInUseUsageDescription": "Çiftlik konumu için konum erişimi gerekli."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#8FBC8F"
+      },
+      "package": "com.farmassistant.app",
+      "versionCode": 1,
+      "permissions": [
+        "CAMERA",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_EXTERNAL_STORAGE",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "NOTIFICATIONS",
+        "VIBRATE",
+        "WAKE_LOCK"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProguardInReleaseBuilds": true,
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#8FBC8F"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Hayvan fotoğrafları çekmek için kamera erişimi gerekli."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Çiftlik konumu için konum erişimi gerekli."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
   }
 }

@@ -5,41 +5,46 @@ import {
   FlatList,
   StyleSheet,
   RefreshControl,
+  StatusBar,
+  Alert,
 } from 'react-native';
-import { Searchbar, FAB, Chip, Menu, Divider } from 'react-native-paper';
+import { Searchbar, FAB, Chip, Menu, Divider, Button, Surface, IconButton } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
 import { AnimalCard } from '../components/AnimalCard';
 import { useAnimalStore } from '../stores/animalStore';
+import { usePerformance } from '../hooks/usePerformance';
 import { Animal } from '../types';
 import { lightTheme, spacing, borderRadius } from '../constants/theme';
 
+const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
+
 export const AnimalsScreen: React.FC = () => {
-  const { animals, deleteAnimal } = useAnimalStore();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<Animal['status'] | 'Tümü'>('Tümü');
+  const { 
+    animals, 
+    deleteAnimal, 
+    bulkDeleteAnimals,
+    getFilteredAnimals,
+    searchQuery,
+    selectedStatus,
+    sortBy,
+    sortOrder,
+    setSearchQuery,
+    setSelectedStatus,
+    setSorting,
+    getStatistics
+  } = useAnimalStore();
+  
   const [refreshing, setRefreshing] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [sortMenuVisible, setSortMenuVisible] = useState(false);
+  const [selectedAnimals, setSelectedAnimals] = useState<string[]>([]);
+  const [selectionMode, setSelectionMode] = useState(false);
+  
+  const { getMetrics } = usePerformance('AnimalsScreen');
+  const statistics = getStatistics();
 
-  const filteredAnimals = useMemo(() => {
-    let filtered = animals;
-
-    // Filter by search query
-    if (searchQuery) {
-      filtered = filtered.filter(
-        (animal) =>
-          animal.tagNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          animal.species.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          animal.breed.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    // Filter by status
-    if (selectedStatus !== 'Tümü') {
-      filtered = filtered.filter((animal) => animal.status === selectedStatus);
-    }
-
-    return filtered;
-  }, [animals, searchQuery, selectedStatus]);
+  const filteredAnimals = useMemo(() => getFilteredAnimals(), [getFilteredAnimals]);
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
@@ -47,7 +52,37 @@ export const AnimalsScreen: React.FC = () => {
   }, []);
 
   const handleDeleteAnimal = (id: string) => {
-    deleteAnimal(id);
+    Alert.alert(
+      'Hayvanı Sil',
+      'Bu hayvanı silmek istediğinizden emin misiniz?',
+      [
+        { text: 'İptal', style: 'cancel' },
+        { 
+          text: 'Sil', 
+          style: 'destructive',
+          onPress: () => deleteAnimal(id)
+        },
+      ]
+    );
+  };
+
+  const handleBulkDelete = () => {
+    Alert.alert(
+      'Seçili Hayvanları Sil',
+      `${selectedAnimals.length} hayvanı silmek istediğinizden emin misiniz?`,
+      [
+        { text: 'İptal', style: 'cancel' },
+        { 
+          text: 'Sil', 
+          style: 'destructive',
+          onPress: () => {
+            bulkDeleteAnimals(selectedAnimals);
+            setSelectedAnimals([]);
+            setSelectionMode(false);
+          }
+        },
+      ]
+    );
   };
 
   const handleEditAnimal = (animal: Animal) => {
@@ -56,8 +91,33 @@ export const AnimalsScreen: React.FC = () => {
   };
 
   const handleAnimalPress = (animal: Animal) => {
+    if (selectionMode) {
+      handleAnimalSelect(animal.id);
+      return;
+    }
     // Navigate to animal detail screen
     console.log('View animal:', animal.id);
+  };
+
+  const handleAnimalSelect = (id: string) => {
+    setSelectedAnimals(prev => 
+      prev.includes(id) 
+        ? prev.filter(animalId => animalId !== id)
+        : [...prev, id]
+    );
+  };
+
+  const toggleSelectionMode = () => {
+    setSelectionMode(!selectionMode);
+    setSelectedAnimals([]);
+  };
+
+  const selectAll = () => {
+    setSelectedAnimals(filteredAnimals.map(animal => animal.id));
+  };
+
+  const deselectAll = () => {
+    setSelectedAnimals([]);
   };
 
   const statusOptions: (Animal['status'] | 'Tümü')[] = [
@@ -69,38 +129,109 @@ export const AnimalsScreen: React.FC = () => {
     'Öldü',
   ];
 
+  const sortOptions = [
+    { key: 'tagNumber', label: 'Küpe No' },
+    { key: 'species', label: 'Tür' },
+    { key: 'birthDate', label: 'Doğum Tarihi' },
+    { key: 'status', label: 'Durum' },
+  ];
+
   const getStatusColor = (status: Animal['status'] | 'Tümü') => {
     switch (status) {
       case 'Aktif':
-        return lightTheme.colors.primary;
+        return '#4CAF50';
       case 'Hamile':
-        return lightTheme.colors.secondary;
+        return '#FF9800';
       case 'Hasta':
-        return lightTheme.colors.error;
+        return '#F44336';
       case 'Satıldı':
-        return lightTheme.colors.outline;
+        return '#9E9E9E';
       case 'Öldü':
-        return lightTheme.colors.error;
+        return '#424242';
       default:
         return lightTheme.colors.outline;
     }
   };
 
   const renderAnimalCard = ({ item }: { item: Animal }) => (
-    <AnimalCard
-      animal={item}
-      onPress={() => handleAnimalPress(item)}
-      onEdit={() => handleEditAnimal(item)}
-      onDelete={() => handleDeleteAnimal(item.id)}
-    />
+    <Animated.View
+      entering={FadeInDown.delay(100)}
+      layout={Layout.springify()}
+    >
+      <AnimalCard
+        animal={item}
+        onPress={() => handleAnimalPress(item)}
+        onEdit={() => handleEditAnimal(item)}
+        onDelete={() => handleDeleteAnimal(item.id)}
+        isSelected={selectedAnimals.includes(item.id)}
+        onSelect={selectionMode ? () => handleAnimalSelect(item.id) : undefined}
+      />
+    </Animated.View>
   );
 
   const renderHeader = () => (
-    <View style={styles.header}>
-      <Text style={styles.title}>Hayvanlar</Text>
+    <Animated.View entering={FadeInDown.delay(50)} style={styles.header}>
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>🐄 Hayvanlar</Text>
+        <View style={styles.headerActions}>
+          <IconButton
+            icon={selectionMode ? "close" : "checkbox-multiple-marked"}
+            onPress={toggleSelectionMode}
+            iconColor={lightTheme.colors.primary}
+          />
+          <Menu
+            visible={sortMenuVisible}
+            onDismiss={() => setSortMenuVisible(false)}
+            anchor={
+              <IconButton
+                icon="sort"
+                onPress={() => setSortMenuVisible(true)}
+                iconColor={lightTheme.colors.primary}
+              />
+            }
+          >
+            {sortOptions.map((option) => (
+              <Menu.Item
+                key={option.key}
+                onPress={() => {
+                  setSorting(option.key as any, sortOrder === 'asc' ? 'desc' : 'asc');
+                  setSortMenuVisible(false);
+                }}
+                title={`${option.label} ${sortBy === option.key ? (sortOrder === 'asc' ? '↑' : '↓') : ''}`}
+              />
+            ))}
+          </Menu>
+        </View>
+      </View>
+      
       <Text style={styles.subtitle}>
-        {filteredAnimals.length} hayvan listeleniyor
+        {filteredAnimals.length} / {statistics.total} hayvan
       </Text>
+
+      {selectionMode && (
+        <Surface style={styles.selectionBar} elevation={2}>
+          <Text style={styles.selectionText}>
+            {selectedAnimals.length} hayvan seçildi
+          </Text>
+          <View style={styles.selectionActions}>
+            <Button mode="outlined" onPress={selectAll} compact>
+              Tümünü Seç
+            </Button>
+            <Button mode="outlined" onPress={deselectAll} compact>
+              Temizle
+            </Button>
+            <Button 
+              mode="contained" 
+              onPress={handleBulkDelete} 
+              compact
+              buttonColor={lightTheme.colors.error}
+              disabled={selectedAnimals.length === 0}
+            >
+              Sil
+            </Button>
+          </View>
+        </Surface>
+      )}
 
       <Searchbar
         placeholder="Küpe no, tür veya cins ara..."
@@ -108,6 +239,7 @@ export const AnimalsScreen: React.FC = () => {
         value={searchQuery}
         style={styles.searchbar}
         iconColor={lightTheme.colors.primary}
+        inputStyle={styles.searchInput}
       />
 
       <View style={styles.filtersContainer}>
@@ -127,6 +259,8 @@ export const AnimalsScreen: React.FC = () => {
               ]}
               textStyle={{
                 color: selectedStatus === status ? 'white' : getStatusColor(status),
+                fontSize: 12,
+                fontWeight: '600',
               }}
             >
               {status}
@@ -134,42 +268,68 @@ export const AnimalsScreen: React.FC = () => {
           ))}
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 
   const renderEmptyState = () => (
-    <View style={styles.emptyContainer}>
-      <Ionicons name="paw" size={64} color={lightTheme.colors.outline} />
-      <Text style={styles.emptyTitle}>Henüz hayvan yok</Text>
-      <Text style={styles.emptySubtitle}>
-        İlk hayvanınızı eklemek için + butonuna dokunun
+    <Animated.View entering={FadeInDown.delay(300)} style={styles.emptyContainer}>
+      <Ionicons name="paw" size={80} color={lightTheme.colors.outline} />
+      <Text style={styles.emptyTitle}>
+        {searchQuery || selectedStatus !== 'Tümü' 
+          ? 'Arama kriterlerine uygun hayvan bulunamadı' 
+          : 'Henüz hayvan yok'
+        }
       </Text>
-    </View>
+      <Text style={styles.emptySubtitle}>
+        {searchQuery || selectedStatus !== 'Tümü'
+          ? 'Filtreleri değiştirmeyi deneyin'
+          : 'İlk hayvanınızı eklemek için + butonuna dokunun'
+        }
+      </Text>
+    </Animated.View>
   );
 
   return (
-    <View style={styles.container}>
-      <FlatList
-        data={filteredAnimals}
-        renderItem={renderAnimalCard}
-        keyExtractor={(item) => item.id}
-        ListHeaderComponent={renderHeader}
-        ListEmptyComponent={renderEmptyState}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-      />
+    <>
+      <StatusBar barStyle="dark-content" backgroundColor={lightTheme.colors.background} />
+      <View style={styles.container}>
+        <AnimatedFlatList
+          data={filteredAnimals}
+          renderItem={renderAnimalCard}
+          keyExtractor={(item) => item.id}
+          ListHeaderComponent={renderHeader}
+          ListEmptyComponent={renderEmptyState}
+          refreshControl={
+            <RefreshControl 
+              refreshing={refreshing} 
+              onRefresh={onRefresh}
+              colors={[lightTheme.colors.primary]}
+              tintColor={lightTheme.colors.primary}
+            />
+          }
+          contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={10}
+          initialNumToRender={8}
+          getItemLayout={(data, index) => ({
+            length: 120,
+            offset: 120 * index,
+            index,
+          })}
+        />
 
-      <FAB
-        icon="plus"
-        style={styles.fab}
-        onPress={() => {
-          // Navigate to add animal screen
-        }}
-      />
-    </View>
+        <FAB
+          icon="plus"
+          style={styles.fab}
+          onPress={() => {
+            // Navigate to add animal screen
+          }}
+          label="Hayvan Ekle"
+        />
+      </View>
+    </>
   );
 };
 
@@ -184,7 +344,19 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: spacing.lg,
-    paddingTop: spacing.xl,
+    paddingTop: spacing.lg,
+    backgroundColor: lightTheme.colors.surface,
+    borderBottomLeftRadius: borderRadius.xl,
+    borderBottomRightRadius: borderRadius.xl,
+    marginBottom: spacing.md,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerActions: {
+    flexDirection: 'row',
   },
   title: {
     fontSize: 28,
@@ -196,11 +368,34 @@ const styles = StyleSheet.create({
     color: lightTheme.colors.onSurfaceVariant,
     marginTop: spacing.xs,
     marginBottom: spacing.lg,
+    fontWeight: '500',
+  },
+  selectionBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: lightTheme.colors.primaryContainer,
+  },
+  selectionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: lightTheme.colors.primary,
+  },
+  selectionActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
   },
   searchbar: {
     marginBottom: spacing.lg,
     backgroundColor: lightTheme.colors.surface,
     elevation: 2,
+    borderRadius: borderRadius.lg,
+  },
+  searchInput: {
+    fontSize: 16,
   },
   filtersContainer: {
     marginBottom: spacing.md,
@@ -217,8 +412,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   filterChip: {
-    marginRight: spacing.xs,
-    marginBottom: spacing.xs,
+    borderRadius: borderRadius.lg,
   },
   emptyContainer: {
     flex: 1,
